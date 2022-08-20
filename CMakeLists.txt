@@ -23,8 +23,17 @@ pico_set_program_version(picow-stuff "0.1")
 pico_enable_stdio_uart(picow-stuff 1)
 pico_enable_stdio_usb(picow-stuff 0)
 
-# Add the standard library to the build
-target_link_libraries(picow-stuff pico_stdlib)
+target_include_directories(picow-stuff PRIVATE ${CMAKE_CURRENT_LIST_DIR})
+
+target_link_libraries(picow-stuff
+    pico_cyw43_arch_lwip_threadsafe_background
+    pico_stdlib
+)
+
+target_compile_definitions(picow-stuff PRIVATE
+    WIFI_SSID="${WIFI_SSID}"
+    WIFI_PASSWORD="${WIFI_PASSWORD}"
+)
 
 pico_add_extra_outputs(picow-stuff)
 
