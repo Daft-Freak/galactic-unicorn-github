@@ -15,7 +15,10 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(picow-stuff picow-stuff.cpp )
+add_executable(picow-stuff
+    http_client.cpp
+    picow-stuff.cpp
+)
 
 pico_set_program_name(picow-stuff "picow-stuff")
 pico_set_program_version(picow-stuff "0.1")

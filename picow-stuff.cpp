@@ -3,6 +3,8 @@
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 
+#include "http_client.hpp"
+
 const char *ssid = WIFI_SSID;
 const char *password = WIFI_PASSWORD;
 
@@ -24,7 +26,16 @@ int main()
         printf("failed to connect\n");
         return 1;
     }
-    printf("connected\n");
+    printf("wifi connected\n");
+
+    HTTPClient client("daft.games");
+
+    client.get("/");
+    
+    while(true)
+    {
+        asm volatile ("wfe");
+    }
 
     return 0;
 }
