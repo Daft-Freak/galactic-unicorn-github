@@ -1,16 +1,34 @@
 #pragma once
 
+#include <functional>
+#include <string_view>
+
 #include "lwip/err.h"
 #include "lwip/tcp.h"
 
 class HTTPClient final
 {
 public:
+    using StatusFunc = std::function<void(int, std::string_view)>;
+    using HeaderFunc = std::function<void(std::string_view, std::string_view)>;
+    using BodyFunc = std::function<void(unsigned int, uint8_t *)>;
+
     HTTPClient(const char *host);
 
     bool get(const char *path);
 
+    void setOnStatus(StatusFunc fun);
+    void setOnHeader(HeaderFunc fun);
+    void setOnBodyData(BodyFunc fun);
+
 private:
+    enum class ResponseState
+    {
+        Status = 0,
+        Headers,
+        Body
+    };
+
     bool connect();
     err_t disconnect();
 
@@ -31,6 +49,12 @@ private:
 
     const char *host;
     bool connected = false;
+
+    StatusFunc onStatus;
+    HeaderFunc onHeader;
+    BodyFunc onBodyData;
+
+    ResponseState res_state = ResponseState::Status;
 
     ip_addr_t remote_addr = {};
     tcp_pcb *pcb = nullptr;

@@ -1,3 +1,5 @@
+#include <charconv>
+
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 
@@ -13,13 +15,31 @@ bool HTTPClient::get(const char *path)
         return false;
 
     char buf[100];
+    // TODO: more headers
     snprintf(buf, sizeof(buf), "GET %s HTTP/1.1\r\nHost: %s\r\n\r\n", path, host);
+
+    res_state = ResponseState::Status;
 
     cyw43_arch_lwip_begin();
     tcp_write(pcb, buf, strlen(buf), TCP_WRITE_FLAG_COPY);
     cyw43_arch_lwip_end();
 
     return true;
+}
+
+void HTTPClient::setOnStatus(StatusFunc fun)
+{
+    onStatus = fun;
+}
+
+void HTTPClient::setOnHeader(HeaderFunc fun)
+{
+    onHeader = fun;
+}
+
+void HTTPClient::setOnBodyData(BodyFunc fun)
+{
+    onBodyData = fun;
 }
 
 bool HTTPClient::connect()
@@ -111,14 +131,73 @@ err_t HTTPClient::on_received(struct tcp_pcb *pcb, struct pbuf *buf, err_t err)
     if(!buf)
         return disconnect();
 
-    printf("recv %i\n", buf->tot_len);
-
     cyw43_arch_lwip_check();
     if(buf->tot_len)
     {
         // TODO: parse
         for(auto buffer = buf; buffer; buffer = buffer->next)
-            fwrite(buffer->payload, 1, buffer->len, stdout);
+        {
+            unsigned int off = 0;
+            while(off < buffer->len)
+            {
+                std::string_view str(reinterpret_cast<char *>(buffer->payload) + off, buffer->len - off);
+                switch(res_state)
+                {
+                    case ResponseState::Status:
+                    {
+                        auto end = str.find("\r\n");
+                        // TODO: should handle not finding end
+                        auto line = str.substr(0, end);
+
+                        // extract code/message
+                        if(onStatus)
+                        {
+                            int code = 0;
+                            auto space = line.find_first_of(' ');
+                            std::from_chars(line.data() + space + 1, line.data() + line.length(), code);
+
+                            space = line.find_first_of(' ', space + 1);
+                            auto message = line.substr(space + 1);
+
+                            onStatus(code, message);
+                        }
+
+                        off += end + 2;
+                        res_state = ResponseState::Headers;
+                        break;
+                    }
+
+                    case ResponseState::Headers:
+                    {
+                        auto end = str.find("\r\n");
+                        // TODO: should handle not finding end
+                        auto line = str.substr(0, end);
+
+                        if(end == 0)
+                            res_state = ResponseState::Body;
+                        else if(onHeader)
+                        {
+                            auto colon = line.find_first_of(':');
+                            auto name = line.substr(0, colon);
+                            auto value = line.substr(colon + 1);
+                            if(value[0] == ' ')
+                                value.remove_prefix(1);
+
+                            onHeader(name, value);
+                        }
+                        off += end + 2;
+
+                        break;
+                    }
+
+                    case ResponseState::Body:
+                        if(onBodyData)
+                            onBodyData(buffer->len - off, reinterpret_cast<uint8_t *>(buffer->payload) + off);
+
+                        off = buffer->len;
+                }
+            }
+        }
         
         tcp_recved(pcb, buf->tot_len);
     }

@@ -30,6 +30,22 @@ int main()
 
     HTTPClient client("daft.games");
 
+    client.setOnStatus([](int code, std::string_view message)
+    {
+        printf("Status code: %i, message: %.*s\n", code, message.length(), message.data());
+    });
+
+    client.setOnHeader([](std::string_view name, std::string_view value)
+    {
+        printf("Header: %.*s, value: %.*s\n", name.length(), name.data(), value.length(), value.data());
+    });
+
+    client.setOnBodyData([](unsigned int len, uint8_t *data)
+    {
+        printf("Body: %.*s\n", len, data);
+    });
+
+
     client.get("/");
     
     while(true)
