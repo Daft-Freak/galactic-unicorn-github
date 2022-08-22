@@ -4,6 +4,7 @@
 #include "pico/cyw43_arch.h"
 
 #include "lwip/apps/http_client.h"
+#include "lwip/altcp_tls.h"
 
 #include "http_client.hpp"
 
@@ -104,8 +105,21 @@ int main()
 
     http_conn_settings.headers_done_fn = http_headers_done;
 
-    httpc_get_file_dns("daft.games", 80, "/", &http_conn_settings, http_received, nullptr, &http_state);
-    
+    err_t err;
+    //err = httpc_get_file_dns("daft.games", 80, "/", &http_conn_settings, http_received, nullptr, &http_state);
+    //printf("HTTP err %i\n", err);
+
+    // tls
+    // FIXME: cert
+    struct altcp_tls_config * conf = altcp_tls_create_config_client(nullptr, 0);
+    altcp_allocator_t tls_allocator = {
+        altcp_tls_alloc, conf
+    };
+    http_conn_settings.altcp_allocator = &tls_allocator;
+
+    err = httpc_get_file_dns("daft.games", 443, "/", &http_conn_settings, http_received, nullptr, &http_state);
+    printf("Request https://daft.games err %i\n", err);
+
     while(true)
     {
         asm volatile ("wfe");
