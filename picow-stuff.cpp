@@ -10,6 +10,24 @@
 const char *ssid = WIFI_SSID;
 const char *password = WIFI_PASSWORD;
 
+// TODO: this isn't great and also probably should be somewhere else
+extern "C"
+int mbedtls_hardware_poll(void *data, unsigned char *output, size_t len, size_t *olen )
+{
+    *olen = 0;
+    for(size_t i = 0; i < len; i += 4)
+    {
+        auto w = pico_lwip_rand();
+        *output++ = w;
+        *output++ = w >> 8;
+        *output++ = w >> 16;
+        *output++ = w >> 24;
+        *olen += 4;
+    }
+
+    return 0;
+}
+
 static err_t http_headers_done(httpc_state_t *connection, void *arg, struct pbuf *hdr, u16_t hdr_len, u32_t content_len)
 {
     printf("Headers %i b, body %i b\n", hdr_len, content_len);

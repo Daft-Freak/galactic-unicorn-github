@@ -28,7 +28,27 @@ pico_enable_stdio_usb(picow-stuff 0)
 
 target_include_directories(picow-stuff PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 
+# mbedtls
+set(ENABLE_TESTING OFF CACHE BOOL "")
+set(ENABLE_PROGRAMS OFF CACHE BOOL "")
+set(MBEDTLS_CONFIG_FILE ${CMAKE_CURRENT_LIST_DIR}/mbedtls_config.h)
+
+add_subdirectory(mbedtls)
+
+target_compile_definitions(mbedcrypto PUBLIC MBEDTLS_CONFIG_FILE="${MBEDTLS_CONFIG_FILE}")
+target_compile_definitions(mbedx509 PUBLIC MBEDTLS_CONFIG_FILE="${MBEDTLS_CONFIG_FILE}")
+target_compile_definitions(mbedtls PUBLIC MBEDTLS_CONFIG_FILE="${MBEDTLS_CONFIG_FILE}")
+
+# lwip tls
+add_library(lwip_tls_mbedtls INTERFACE)
+target_sources(lwip_tls_mbedtls INTERFACE
+    ${PICO_LWIP_PATH}/src/apps/altcp_tls/altcp_tls_mbedtls.c
+    ${PICO_LWIP_PATH}/src/apps/altcp_tls/altcp_tls_mbedtls_mem.c
+)
+target_link_libraries(lwip_tls_mbedtls INTERFACE mbedtls)
+
 target_link_libraries(picow-stuff
+    lwip_tls_mbedtls
     pico_cyw43_arch_lwip_threadsafe_background
     pico_lwip_http
     pico_stdlib
