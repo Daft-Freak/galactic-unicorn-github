@@ -34,6 +34,9 @@ static err_t http_received(void *arg, struct altcp_pcb *pcb, struct pbuf *buf, e
     {
         fwrite(buffer->payload, 1, buffer->len, stdout);
     }
+
+    altcp_recved(pcb, buf->tot_len);
+    pbuf_free(buf);
     
     return ERR_OK;
 }
