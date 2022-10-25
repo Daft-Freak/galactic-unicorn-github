@@ -8,25 +8,25 @@ set(CMAKE_CXX_STANDARD 17)
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
-project(picow-stuff C CXX ASM)
+project(galactic-unicorn-github C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(picow-stuff
+add_executable(galactic-unicorn-github
     http_client.cpp
-    picow-stuff.cpp
+    galactic-unicorn-github.cpp
 )
 
-pico_set_program_name(picow-stuff "picow-stuff")
-pico_set_program_version(picow-stuff "0.1")
+pico_set_program_name(galactic-unicorn-github "galactic-unicorn-github")
+pico_set_program_version(galactic-unicorn-github "0.1")
 
-pico_enable_stdio_uart(picow-stuff 1)
-pico_enable_stdio_usb(picow-stuff 0)
+pico_enable_stdio_uart(galactic-unicorn-github 1)
+pico_enable_stdio_usb(galactic-unicorn-github 0)
 
-target_include_directories(picow-stuff PRIVATE ${CMAKE_CURRENT_LIST_DIR})
+target_include_directories(galactic-unicorn-github PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 
 # mbedtls
 set(ENABLE_TESTING OFF CACHE BOOL "")
@@ -47,17 +47,17 @@ target_sources(lwip_tls_mbedtls INTERFACE
 )
 target_link_libraries(lwip_tls_mbedtls INTERFACE mbedtls)
 
-target_link_libraries(picow-stuff
+target_link_libraries(galactic-unicorn-github
     lwip_tls_mbedtls
     pico_cyw43_arch_lwip_threadsafe_background
     pico_lwip_http
     pico_stdlib
 )
 
-target_compile_definitions(picow-stuff PRIVATE
+target_compile_definitions(galactic-unicorn-github PRIVATE
     WIFI_SSID="${WIFI_SSID}"
     WIFI_PASSWORD="${WIFI_PASSWORD}"
 )
 
-pico_add_extra_outputs(picow-stuff)
+pico_add_extra_outputs(galactic-unicorn-github)
 
