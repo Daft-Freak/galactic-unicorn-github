@@ -3,7 +3,6 @@
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 
-#include "lwip/apps/http_client.h"
 #include "lwip/altcp_tls.h"
 
 #include "http_client.hpp"
@@ -29,37 +28,6 @@ int mbedtls_hardware_poll(void *data, unsigned char *output, size_t len, size_t 
     return 0;
 }
 
-static err_t http_headers_done(httpc_state_t *connection, void *arg, struct pbuf *hdr, u16_t hdr_len, u32_t content_len)
-{
-    printf("Headers %i b, body %i b\n", hdr_len, content_len);
-
-    printf("Headers:\n");
-    for(auto buffer = hdr; buffer && hdr_len; buffer = buffer->next)
-    {
-        auto len = std::min(buffer->len, hdr_len);
-        fwrite(buffer->payload, 1, len, stdout);
-        hdr_len -= len;
-    }
-
-    return ERR_OK;
-}
-
-static err_t http_received(void *arg, struct altcp_pcb *pcb, struct pbuf *buf, err_t err)
-{
-    if(!buf || !buf->tot_len)
-        return ERR_OK;
-
-    for(auto buffer = buf; buffer; buffer = buffer->next)
-    {
-        fwrite(buffer->payload, 1, buffer->len, stdout);
-    }
-
-    altcp_recved(pcb, buf->tot_len);
-    pbuf_free(buf);
-    
-    return ERR_OK;
-}
-
 int main()
 {
     stdio_init_all();
@@ -80,7 +48,14 @@ int main()
     }
     printf("wifi connected\n");
 
-    /*HTTPClient client("daft.games");
+    // tls
+    // FIXME: cert
+    struct altcp_tls_config * conf = altcp_tls_create_config_client(nullptr, 0);
+    altcp_allocator_t tls_allocator = {
+        altcp_tls_alloc, conf
+    };
+
+    HTTPClient client("api.github.com", &tls_allocator);
 
     client.setOnStatus([](int code, std::string_view message)
     {
@@ -97,28 +72,15 @@ int main()
         printf("Body: %.*s\n", len, data);
     });
 
+    // github API request
+    const char *body = R"({
+    "query": "query { viewer { login }}"
+})";
 
-    client.get("/");*/
-
-    httpc_state_t *http_state = nullptr;
-    httpc_connection_t http_conn_settings = {};
-
-    http_conn_settings.headers_done_fn = http_headers_done;
-
-    err_t err;
-    //err = httpc_get_file_dns("daft.games", 80, "/", &http_conn_settings, http_received, nullptr, &http_state);
-    //printf("HTTP err %i\n", err);
-
-    // tls
-    // FIXME: cert
-    struct altcp_tls_config * conf = altcp_tls_create_config_client(nullptr, 0);
-    altcp_allocator_t tls_allocator = {
-        altcp_tls_alloc, conf
-    };
-    http_conn_settings.altcp_allocator = &tls_allocator;
-
-    err = httpc_get_file_dns("daft.games", 443, "/", &http_conn_settings, http_received, nullptr, &http_state);
-    printf("Request https://daft.games err %i\n", err);
+    client.post("/graphql", body, {
+        {"User-Agent", "PicoW"},
+        {"Authorization", "bearer " GITHUB_TOKEN}
+    });
 
     while(true)
     {

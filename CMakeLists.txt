@@ -50,13 +50,13 @@ target_link_libraries(lwip_tls_mbedtls INTERFACE mbedtls)
 target_link_libraries(galactic-unicorn-github
     lwip_tls_mbedtls
     pico_cyw43_arch_lwip_threadsafe_background
-    pico_lwip_http
     pico_stdlib
 )
 
 target_compile_definitions(galactic-unicorn-github PRIVATE
     WIFI_SSID="${WIFI_SSID}"
     WIFI_PASSWORD="${WIFI_PASSWORD}"
+    GITHUB_TOKEN="${GITHUB_TOKEN}"
 )
 
 pico_add_extra_outputs(galactic-unicorn-github)
