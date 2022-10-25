@@ -6,6 +6,8 @@
 
 #include "lwip/altcp_tls.h"
 
+#include "tiny-json.h"
+
 #include "http_client.hpp"
 
 const char *ssid = WIFI_SSID;
@@ -26,6 +28,8 @@ query($login:String!, $startTime:DateTime) {
         }
     }
 })";
+
+static json_t json_mem[1024];
 
 // TODO: this isn't great and also probably should be somewhere else
 extern "C"
@@ -70,6 +74,55 @@ static void build_query_body(char *out, size_t out_len, const char *query, const
     }
 
     snprintf(out, out_len, "\", \"variables\": %s}", variables);
+}
+
+static void parse_response_json(std::string &str)
+{
+    auto json = json_create(str.data(), json_mem, std::size(json_mem));
+
+    if(!json)
+    {
+        printf("JSON parse failed!\n");
+        return;
+    }
+
+    json = json_getProperty(json, "data");
+    if(json)
+        json = json_getProperty(json, "user");
+    if(json)
+        json = json_getProperty(json, "contributionsCollection");
+    if(json)
+        json = json_getProperty(json, "contributionCalendar");
+
+    if(!json || json_getType(json) != JSON_OBJ)
+    {
+        printf("contributionsCalendar not found!\n");
+        return;
+    }
+
+    auto weeks = json_getProperty(json, "weeks");
+
+    if(!weeks || json_getType(weeks) != JSON_ARRAY)
+    {
+        printf("weeks array not found!\n");
+        return;
+    }
+
+    int week_no = 0;
+    for(auto week = json_getChild(weeks); week; week = json_getSibling(week), week_no++)
+    {
+        auto days = json_getProperty(week, "contributionDays");
+        if(!days || json_getType(days) != JSON_ARRAY)
+            continue;
+
+        int day_no = 0;
+        for(auto day = json_getChild(days); day; day = json_getSibling(day), day_no++)
+        {
+            auto level = json_getPropertyValue(day, "contributionLevel");
+
+            printf("W %i D %i %s\n", week_no, day_no, level);
+        }
+    }
 }
 
 int main()
@@ -126,9 +179,7 @@ int main()
         response_data += std::string_view(reinterpret_cast<char *>(data), len);
 
         if(response_data.length() == response_len)
-        {
-            printf("Response: %s\n", response_data.c_str());
-        }
+            parse_response_json(response_data);
     });
 
     // github API request
