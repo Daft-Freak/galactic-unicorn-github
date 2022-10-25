@@ -11,6 +11,7 @@
 const char *ssid = WIFI_SSID;
 const char *password = WIFI_PASSWORD;
 
+// contributionLevel for 5 levels, could use contributionCount for more detail
 const char *contributionsQuery = R"(
 query($login:String!, $startTime:DateTime) { 
     user(login: $login){
@@ -19,8 +20,6 @@ query($login:String!, $startTime:DateTime) {
                 weeks {
                     contributionDays {
                         contributionLevel
-                        contributionCount
-                        date
                     }
                 }
             }
