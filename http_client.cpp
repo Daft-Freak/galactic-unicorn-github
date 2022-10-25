@@ -174,8 +174,24 @@ err_t HTTPClient::on_received(struct altcp_pcb *pcb, struct pbuf *buf, err_t err
                     case ResponseState::Headers:
                     {
                         auto end = str.find("\r\n");
-                        // TODO: should handle not finding end
-                        auto line = str.substr(0, end);
+
+                        if(end == std::string_view::npos)
+                        {
+                            // need more data
+                            temp_header += str;
+                            off = buffer->len;
+                            continue;
+                        }
+
+                        // get full header line
+                        std::string_view line;
+                        if(temp_header.empty())
+                            line = str.substr(0, end);
+                        else
+                        {
+                            temp_header += str.substr(0, end);
+                            line = temp_header;
+                        }
 
                         if(end == 0)
                             res_state = ResponseState::Body;
@@ -188,6 +204,9 @@ err_t HTTPClient::on_received(struct altcp_pcb *pcb, struct pbuf *buf, err_t err
                                 value.remove_prefix(1);
 
                             onHeader(name, value);
+
+                            if(!temp_header.empty())
+                                temp_header.clear();
                         }
                         off += end + 2;
 

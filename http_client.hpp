@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <string>
 #include <string_view>
 
 #include "lwip/err.h"
@@ -62,4 +63,6 @@ private:
     ip_addr_t remote_addr = {};
     altcp_pcb *pcb = nullptr;
     bool done_addr_lookup = false;
+
+    std::string temp_header;
 };
