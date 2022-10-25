@@ -6,6 +6,9 @@
 
 #include "lwip/altcp_tls.h"
 
+#include "galactic_unicorn.hpp"
+#include "pico_graphics.hpp"
+
 #include "tiny-json.h"
 
 #include "http_client.hpp"
@@ -30,6 +33,10 @@ query($login:String!, $startTime:DateTime) {
 })";
 
 static json_t json_mem[1024];
+
+// unicorn/graphics
+pimoroni::PicoGraphics_PenRGB888 graphics(53, 11, nullptr);
+pimoroni::GalacticUnicorn galactic_unicorn;
 
 // TODO: this isn't great and also probably should be somewhere else
 extern "C"
@@ -108,6 +115,9 @@ static void parse_response_json(std::string &str)
         return;
     }
 
+    graphics.set_pen(0, 0, 0);
+    graphics.clear();
+
     int week_no = 0;
     for(auto week = json_getChild(weeks); week; week = json_getSibling(week), week_no++)
     {
@@ -118,9 +128,24 @@ static void parse_response_json(std::string &str)
         int day_no = 0;
         for(auto day = json_getChild(days); day; day = json_getSibling(day), day_no++)
         {
-            auto level = json_getPropertyValue(day, "contributionLevel");
+            std::string_view level = json_getPropertyValue(day, "contributionLevel");
 
-            printf("W %i D %i %s\n", week_no, day_no, level);
+            printf("W %i D %i %s\n", week_no, day_no, level.data());
+
+            int index = 0;
+
+            if(level == "FIRST_QUARTILE")
+                graphics.set_pen(0x0E, 0x22, 0x14);
+            else if(level == "SECOND_QUARTILE")
+                graphics.set_pen(0x00, 0x6D, 0x32);
+            else if(level == "THIRD_QUARTILE")
+                graphics.set_pen(0x36, 0xB6, 0x51);
+            else if(level == "FOURTH_QUARTILE")
+                graphics.set_pen(0x45, 0xFF, 0x64);
+            else
+                continue;
+
+            graphics.pixel({week_no, day_no});
         }
     }
 }
@@ -128,6 +153,12 @@ static void parse_response_json(std::string &str)
 int main()
 {
     stdio_init_all();
+
+    galactic_unicorn.init();
+
+    graphics.set_pen(0);
+    graphics.clear();
+    graphics.set_font("bitmap8");
 
     if(cyw43_arch_init_with_country(CYW43_COUNTRY_UK))
     {
@@ -144,6 +175,10 @@ int main()
         return 1;
     }
     printf("wifi connected\n");
+    
+    graphics.set_pen(0xFF, 0xFF, 0xFF);
+    graphics.text("Connected.", {0, 2}, 100, 1.0f);
+    galactic_unicorn.update(&graphics);
 
     // tls
     // FIXME: cert
@@ -197,6 +232,7 @@ int main()
 
     while(true)
     {
+        galactic_unicorn.update(&graphics);
         asm volatile ("wfe");
     }
 

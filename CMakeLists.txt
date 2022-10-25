@@ -7,11 +7,18 @@ set(CMAKE_CXX_STANDARD 17)
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
+include(pimoroni_pico_import.cmake)
 
 project(galactic-unicorn-github C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
+
+# first three to avoid compile/link errors
+include(libraries/hershey_fonts/hershey_fonts) # pico_graphics dependency
+include(libraries/bitmap_fonts/bitmap_fonts) # pico_graphics dependency
+include(libraries/pico_graphics/pico_graphics) # galactic_unicorn dependency
+include(libraries/galactic_unicorn/galactic_unicorn)
 
 # Add executable. Default name is the project name, version 0.1
 
@@ -58,6 +65,7 @@ target_link_libraries(galactic-unicorn-github
     lwip_tls_mbedtls
     pico_cyw43_arch_lwip_threadsafe_background
     pico_stdlib
+    galactic_unicorn
     tinyjson
 )
 
