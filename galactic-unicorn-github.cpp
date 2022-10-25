@@ -11,6 +11,23 @@
 const char *ssid = WIFI_SSID;
 const char *password = WIFI_PASSWORD;
 
+const char *contributionsQuery = R"(
+query($login:String!, $startTime:DateTime) { 
+    user(login: $login){
+        contributionsCollection(from: $startTime) {
+            contributionCalendar {
+                weeks {
+                    contributionDays {
+                        contributionLevel
+                        contributionCount
+                        date
+                    }
+                }
+            }
+        }
+    }
+})";
+
 // TODO: this isn't great and also probably should be somewhere else
 extern "C"
 int mbedtls_hardware_poll(void *data, unsigned char *output, size_t len, size_t *olen )
@@ -27,6 +44,33 @@ int mbedtls_hardware_poll(void *data, unsigned char *output, size_t len, size_t 
     }
 
     return 0;
+}
+
+static void build_query_body(char *out, size_t out_len, const char *query, const char *variables = "{}")
+{
+    strcpy(out, "{\"query\": \"");
+    out += 11;
+    out_len += 11;
+
+    // strip whitespace from query
+    for(auto p = query; *p && out_len; p++)
+    {
+        if(*p == ' ' || *p == '\n')
+        {
+            if(*(out - 1) != ' ')
+            {
+                *out++ = ' ';
+                out_len--;
+            }
+
+            continue;
+        }
+        
+        *out++ = *p;
+        out_len--;
+    }
+
+    snprintf(out, out_len, "\", \"variables\": %s}", variables);
 }
 
 int main()
@@ -89,9 +133,12 @@ int main()
     });
 
     // github API request
-    const char *body = R"({
-    "query": "query { viewer { login }}"
-})";
+    char body[512];
+
+    const char *variables = R"({"login" : "Daft-Freak"})";
+    build_query_body(body, sizeof(body), contributionsQuery, variables);
+
+    printf("Request body %s\n", body);
 
     client.post("/graphql", body, {
         {"User-Agent", "PicoW"},
