@@ -7,7 +7,7 @@
 
 #include "http_client.hpp"
 
-HTTPClient::HTTPClient(const char *host) : host(host){}
+HTTPClient::HTTPClient(const char *host, altcp_allocator_t *altcp_allocator) : host(host), altcp_allocator(altcp_allocator){}
 
 bool HTTPClient::get(const char *path)
 {
@@ -21,7 +21,7 @@ bool HTTPClient::get(const char *path)
     res_state = ResponseState::Status;
 
     cyw43_arch_lwip_begin();
-    tcp_write(pcb, buf, strlen(buf), TCP_WRITE_FLAG_COPY);
+    altcp_write(pcb, buf, strlen(buf), TCP_WRITE_FLAG_COPY);
     cyw43_arch_lwip_end();
 
     return true;
@@ -65,15 +65,19 @@ bool HTTPClient::connect()
         }
     }
 
-    pcb = tcp_new_ip_type(IP_GET_TYPE(&remote_addr));
+    pcb = altcp_new_ip_type(altcp_allocator, IP_GET_TYPE(&remote_addr));
 
-    tcp_arg(pcb,this);
-    tcp_recv(pcb, static_received);
-    tcp_sent(pcb, static_sent);
-    tcp_err(pcb, static_error);
+    altcp_arg(pcb,this);
+    altcp_recv(pcb, static_received);
+    altcp_sent(pcb, static_sent);
+    altcp_err(pcb, static_error);
 
     cyw43_arch_lwip_begin();
-    err = tcp_connect(pcb, &remote_addr, 80, static_connected);
+
+    // TODO: assuming allocator is TLS allocator
+    bool is_tls = altcp_allocator != nullptr;
+    err = altcp_connect(pcb, &remote_addr, is_tls ? 443 : 80, static_connected);
+
     cyw43_arch_lwip_end();
 
     if(err != ERR_OK)
@@ -99,9 +103,9 @@ bool HTTPClient::connect()
 err_t HTTPClient::disconnect()
 {
     auto ret = ERR_OK;
-    if(pcb && tcp_close(pcb) != ERR_OK)
+    if(pcb && altcp_close(pcb) != ERR_OK)
     {
-        tcp_abort(pcb);
+        altcp_abort(pcb);
         ret = ERR_ABRT;
     }
     
@@ -117,7 +121,7 @@ void HTTPClient::on_dns_found(const char *name, const ip_addr_t *ipAddr)
     done_addr_lookup = true;
 }
 
-err_t HTTPClient::on_connected(struct tcp_pcb *pcb, err_t err)
+err_t HTTPClient::on_connected(struct altcp_pcb *pcb, err_t err)
 {
     if(err != ERR_OK)
         return disconnect();
@@ -126,7 +130,7 @@ err_t HTTPClient::on_connected(struct tcp_pcb *pcb, err_t err)
     return ERR_OK;
 }
 
-err_t HTTPClient::on_received(struct tcp_pcb *pcb, struct pbuf *buf, err_t err)
+err_t HTTPClient::on_received(struct altcp_pcb *pcb, struct pbuf *buf, err_t err)
 {
     if(!buf)
         return disconnect();
@@ -199,14 +203,14 @@ err_t HTTPClient::on_received(struct tcp_pcb *pcb, struct pbuf *buf, err_t err)
             }
         }
         
-        tcp_recved(pcb, buf->tot_len);
+        altcp_recved(pcb, buf->tot_len);
     }
     pbuf_free(buf);
 
     return ERR_OK;
 }
 
-err_t HTTPClient::on_sent(struct tcp_pcb *pcb, u16_t len)
+err_t HTTPClient::on_sent(struct altcp_pcb *pcb, u16_t len)
 {
     // TODO: something
     printf("sent %i\n", len);
@@ -225,19 +229,19 @@ void HTTPClient::static_dns_found(const char *name, const ip_addr_t *ipAddr, voi
     that->on_dns_found(name, ipAddr);
 }
 
-err_t HTTPClient::static_connected(void *arg, struct tcp_pcb *pcb, err_t err)
+err_t HTTPClient::static_connected(void *arg, struct altcp_pcb *pcb, err_t err)
 {
     auto that = reinterpret_cast<HTTPClient *>(arg);
     return that->on_connected(pcb, err);
 }
 
-err_t HTTPClient::static_received(void *arg, struct tcp_pcb *pcb, struct pbuf *buf, err_t err)
+err_t HTTPClient::static_received(void *arg, struct altcp_pcb *pcb, struct pbuf *buf, err_t err)
 {
     auto that = reinterpret_cast<HTTPClient *>(arg);
     return that->on_received(pcb, buf, err);
 }
 
-err_t HTTPClient::static_sent(void *arg, struct tcp_pcb *pcb, u16_t len)
+err_t HTTPClient::static_sent(void *arg, struct altcp_pcb *pcb, u16_t len)
 {
     auto that = reinterpret_cast<HTTPClient *>(arg);
     return that->on_sent(pcb, len);
