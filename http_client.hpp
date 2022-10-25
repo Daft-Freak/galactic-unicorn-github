@@ -18,6 +18,7 @@ public:
     HTTPClient(const char *host, altcp_allocator_t *altcp_allocator = nullptr);
 
     bool get(const char *path, std::map<std::string_view, std::string_view> headers = {});
+    bool post(const char *path, std::string_view body, std::map<std::string_view, std::string_view> headers = {});
 
     void setOnStatus(StatusFunc fun);
     void setOnHeader(HeaderFunc fun);
@@ -33,6 +34,8 @@ private:
 
     bool connect();
     err_t disconnect();
+
+    bool do_request(const char *method, const char *path, const std::map<std::string_view, std::string_view> &headers);
 
     void on_dns_found(const char *name, const ip_addr_t *ipAddr);
 

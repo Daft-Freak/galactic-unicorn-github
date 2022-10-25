@@ -14,24 +14,23 @@ bool HTTPClient::get(const char *path, std::map<std::string_view, std::string_vi
     if(!connect())
         return false;
 
-    char buf[1024];
-    int off = snprintf(buf, sizeof(buf), "GET %s HTTP/1.1\r\nHost: %s\r\n", path, host);
+    return do_request("GET", path, headers);
+}
 
-    // headers
-    for(auto &header : headers)
-        off += snprintf(buf + off, sizeof(buf) - off, "%.*s: %.*s\r\n", header.first.length(), header.first.data(), header.second.length(), header.second.data());
-
-    if(off >= sizeof(buf) - 3)
+bool HTTPClient::post(const char *path, std::string_view body, std::map<std::string_view, std::string_view> headers)
+{
+    if(!connect())
         return false;
 
-    buf[off++] = '\r';
-    buf[off++] = '\n';
-    buf[off] = 0;
+    // set Content-Length
+    std::string len = std::to_string(body.length());
+    headers["Content-Length"] = len;
 
-    res_state = ResponseState::Status;
+    if(!do_request("POST", path, headers))
+        return false;
 
     cyw43_arch_lwip_begin();
-    altcp_write(pcb, buf, strlen(buf), TCP_WRITE_FLAG_COPY);
+    altcp_write(pcb, body.data(), body.length(), TCP_WRITE_FLAG_COPY);
     cyw43_arch_lwip_end();
 
     return true;
@@ -123,6 +122,31 @@ err_t HTTPClient::disconnect()
     connected = false;
 
     return ret;
+}
+
+bool HTTPClient::do_request(const char *method, const char *path, const std::map<std::string_view, std::string_view> &headers)
+{
+    char buf[1024];
+    int off = snprintf(buf, sizeof(buf), "%s %s HTTP/1.1\r\nHost: %s\r\n", method, path, host);
+
+    // headers
+    for(auto &header : headers)
+        off += snprintf(buf + off, sizeof(buf) - off, "%.*s: %.*s\r\n", header.first.length(), header.first.data(), header.second.length(), header.second.data());
+
+    if(off >= sizeof(buf) - 3)
+        return false;
+
+    buf[off++] = '\r';
+    buf[off++] = '\n';
+    buf[off] = 0;
+
+    res_state = ResponseState::Status;
+
+    cyw43_arch_lwip_begin();
+    altcp_write(pcb, buf, strlen(buf), TCP_WRITE_FLAG_COPY);
+    cyw43_arch_lwip_end();
+
+    return true;
 }
 
 void HTTPClient::on_dns_found(const char *name, const ip_addr_t *ipAddr)
