@@ -47,10 +47,18 @@ target_sources(lwip_tls_mbedtls INTERFACE
 )
 target_link_libraries(lwip_tls_mbedtls INTERFACE mbedtls)
 
+# tinyjson
+add_library(tinyjson INTERFACE)
+target_sources(tinyjson INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/tiny-json/tiny-json.c
+)
+target_include_directories(tinyjson INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/tiny-json)
+
 target_link_libraries(galactic-unicorn-github
     lwip_tls_mbedtls
     pico_cyw43_arch_lwip_threadsafe_background
     pico_stdlib
+    tinyjson
 )
 
 target_compile_definitions(galactic-unicorn-github PRIVATE
