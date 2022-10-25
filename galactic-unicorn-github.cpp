@@ -1,3 +1,4 @@
+#include <charconv>
 #include <cstdio>
 
 #include "pico/stdlib.h"
@@ -57,19 +58,34 @@ int main()
 
     HTTPClient client("api.github.com", &tls_allocator);
 
+    std::string response_data;
+    unsigned int response_len = 0;
+
     client.setOnStatus([](int code, std::string_view message)
     {
         printf("Status code: %i, message: %.*s\n", code, message.length(), message.data());
     });
 
-    client.setOnHeader([](std::string_view name, std::string_view value)
+    client.setOnHeader([&response_data, &response_len](std::string_view name, std::string_view value)
     {
         printf("Header: %.*s, value: %.*s\n", name.length(), name.data(), value.length(), value.data());
+
+        if(name == "Content-Length") // TODO: case
+        {
+            // TODO: check errors
+            std::from_chars(value.data(), value.data() + value.length(), response_len);
+            response_data.reserve(response_len);
+        }
     });
 
-    client.setOnBodyData([](unsigned int len, uint8_t *data)
+    client.setOnBodyData([&response_data, &response_len](unsigned int len, uint8_t *data)
     {
-        printf("Body: %.*s\n", len, data);
+        response_data += std::string_view(reinterpret_cast<char *>(data), len);
+
+        if(response_data.length() == response_len)
+        {
+            printf("Response: %s\n", response_data.c_str());
+        }
     });
 
     // github API request
