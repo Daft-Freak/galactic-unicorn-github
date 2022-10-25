@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <map>
 #include <string>
 #include <string_view>
 
@@ -16,7 +17,7 @@ public:
 
     HTTPClient(const char *host, altcp_allocator_t *altcp_allocator = nullptr);
 
-    bool get(const char *path);
+    bool get(const char *path, std::map<std::string_view, std::string_view> headers = {});
 
     void setOnStatus(StatusFunc fun);
     void setOnHeader(HeaderFunc fun);

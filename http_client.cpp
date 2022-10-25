@@ -9,14 +9,24 @@
 
 HTTPClient::HTTPClient(const char *host, altcp_allocator_t *altcp_allocator) : host(host), altcp_allocator(altcp_allocator){}
 
-bool HTTPClient::get(const char *path)
+bool HTTPClient::get(const char *path, std::map<std::string_view, std::string_view> headers)
 {
     if(!connect())
         return false;
 
-    char buf[100];
-    // TODO: more headers
-    snprintf(buf, sizeof(buf), "GET %s HTTP/1.1\r\nHost: %s\r\n\r\n", path, host);
+    char buf[1024];
+    int off = snprintf(buf, sizeof(buf), "GET %s HTTP/1.1\r\nHost: %s\r\n", path, host);
+
+    // headers
+    for(auto &header : headers)
+        off += snprintf(buf + off, sizeof(buf) - off, "%.*s: %.*s\r\n", header.first.length(), header.first.data(), header.second.length(), header.second.data());
+
+    if(off >= sizeof(buf) - 3)
+        return false;
+
+    buf[off++] = '\r';
+    buf[off++] = '\n';
+    buf[off] = 0;
 
     res_state = ResponseState::Status;
 
