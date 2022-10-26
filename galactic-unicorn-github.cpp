@@ -32,7 +32,19 @@ query($login:String!, $startTime:DateTime) {
     }
 })";
 
+static int year = 2022;
+
 static json_t json_mem[1024];
+
+static altcp_allocator_t tls_allocator = {
+    altcp_tls_alloc, nullptr
+};
+
+static HTTPClient client("api.github.com", &tls_allocator);
+
+static std::string response_data;
+static unsigned int response_len = 0;
+static bool request_in_progress = false;
 
 // unicorn/graphics
 pimoroni::PicoGraphics_PenRGB888 graphics(53, 11, nullptr);
@@ -159,6 +171,67 @@ static void parse_response_json(std::string &str)
     }
 }
 
+static void make_http_request()
+{
+    if(request_in_progress)
+        return;
+
+    // tls
+    // FIXME: cert
+    if(!tls_allocator.arg)
+        tls_allocator.arg  = altcp_tls_create_config_client(nullptr, 0);
+
+    client.setOnStatus([](int code, std::string_view message)
+    {
+        printf("Status code: %i, message: %.*s\n", code, message.length(), message.data());
+    });
+
+    response_data.clear();
+    response_len = 0;
+
+    client.setOnHeader([](std::string_view name, std::string_view value)
+    {
+        printf("Header: %.*s, value: %.*s\n", name.length(), name.data(), value.length(), value.data());
+
+        if(name == "Content-Length") // TODO: case
+        {
+            // TODO: check errors
+            std::from_chars(value.data(), value.data() + value.length(), response_len);
+            response_data.reserve(response_len);
+        }
+    });
+
+    client.setOnBodyData([](unsigned int len, uint8_t *data)
+    {
+        response_data += std::string_view(reinterpret_cast<char *>(data), len);
+
+        if(response_data.length() == response_len)
+        {
+            parse_response_json(response_data);
+            request_in_progress = false;
+        }
+    });
+
+    // github API request
+    char body[512];
+    char variables[128];
+
+    snprintf(variables, sizeof(variables), R"({"login" : "Daft-Freak", "startTime": "%i-01-01T00:00:00"})", year);
+    build_query_body(body, sizeof(body), contributionsQuery, variables);
+
+    printf("Request body %s\n", body);
+
+    bool ret = client.post("/graphql", body, {
+        {"User-Agent", "PicoW"},
+        {"Authorization", "bearer " GITHUB_TOKEN}
+    });
+
+    if(!ret)
+        return;
+
+    request_in_progress = true;
+}
+
 int main()
 {
     stdio_init_all();
@@ -189,60 +262,22 @@ int main()
     graphics.text("Connected.", {0, 2}, 100, 1.0f);
     galactic_unicorn.update(&graphics);
 
-    // tls
-    // FIXME: cert
-    struct altcp_tls_config * conf = altcp_tls_create_config_client(nullptr, 0);
-    altcp_allocator_t tls_allocator = {
-        altcp_tls_alloc, conf
-    };
-
-    HTTPClient client("api.github.com", &tls_allocator);
-
-    std::string response_data;
-    unsigned int response_len = 0;
-
-    client.setOnStatus([](int code, std::string_view message)
-    {
-        printf("Status code: %i, message: %.*s\n", code, message.length(), message.data());
-    });
-
-    client.setOnHeader([&response_data, &response_len](std::string_view name, std::string_view value)
-    {
-        printf("Header: %.*s, value: %.*s\n", name.length(), name.data(), value.length(), value.data());
-
-        if(name == "Content-Length") // TODO: case
-        {
-            // TODO: check errors
-            std::from_chars(value.data(), value.data() + value.length(), response_len);
-            response_data.reserve(response_len);
-        }
-    });
-
-    client.setOnBodyData([&response_data, &response_len](unsigned int len, uint8_t *data)
-    {
-        response_data += std::string_view(reinterpret_cast<char *>(data), len);
-
-        if(response_data.length() == response_len)
-            parse_response_json(response_data);
-    });
-
-    // github API request
-    char body[512];
-
-    const char *variables = R"({"login" : "Daft-Freak"})";
-    build_query_body(body, sizeof(body), contributionsQuery, variables);
-
-    printf("Request body %s\n", body);
-
-    client.post("/graphql", body, {
-        {"User-Agent", "PicoW"},
-        {"Authorization", "bearer " GITHUB_TOKEN}
-    });
+    make_http_request();
 
     while(true)
     {
+        if(!request_in_progress && galactic_unicorn.is_pressed(pimoroni::GalacticUnicorn::SWITCH_A))
+        {
+            year++;
+            make_http_request();
+        }
+        else if(!request_in_progress && galactic_unicorn.is_pressed(pimoroni::GalacticUnicorn::SWITCH_B))
+        {
+            year--;
+            make_http_request();
+        }
         galactic_unicorn.update(&graphics);
-        asm volatile ("wfe");
+        sleep_ms(10);
     }
 
     return 0;
