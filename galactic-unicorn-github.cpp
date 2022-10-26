@@ -125,7 +125,16 @@ static void parse_response_json(std::string &str)
         if(!days || json_getType(days) != JSON_ARRAY)
             continue;
 
+        int num_days = 0;
+        for(auto day = json_getChild(days); day; day = json_getSibling(day))
+            num_days++;
+
         int day_no = 0;
+
+        // adjust first week
+        if(week_no == 0 && num_days < 7)
+            day_no = 7 - num_days;
+
         for(auto day = json_getChild(days); day; day = json_getSibling(day), day_no++)
         {
             std::string_view level = json_getPropertyValue(day, "contributionLevel");
