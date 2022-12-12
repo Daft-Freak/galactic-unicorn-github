@@ -232,6 +232,18 @@ static void make_http_request()
     request_in_progress = true;
 }
 
+static void status_message(const char *message)
+{
+    graphics.set_pen(0);
+    graphics.clear();
+    graphics.set_font("bitmap8");
+
+    graphics.set_pen(0xFF, 0xFF, 0xFF);
+    graphics.text(message, {0, 2}, 100, 1.0f);
+
+    galactic_unicorn.update(&graphics);
+}
+
 int main()
 {
     stdio_init_all();
@@ -240,7 +252,6 @@ int main()
 
     graphics.set_pen(0);
     graphics.clear();
-    graphics.set_font("bitmap8");
 
     if(cyw43_arch_init_with_country(CYW43_COUNTRY_UK))
     {
@@ -251,16 +262,21 @@ int main()
 
     cyw43_arch_enable_sta_mode();
 
+    status_message("Connecting");
+
+    printf("ssid %s pass %s\n", ssid, password);
+
     if(cyw43_arch_wifi_connect_timeout_ms(ssid, password, CYW43_AUTH_WPA2_AES_PSK, 10000))
     {
         printf("failed to connect\n");
+
+        status_message("Failed!");
+
         return 1;
     }
     printf("wifi connected\n");
-    
-    graphics.set_pen(0xFF, 0xFF, 0xFF);
-    graphics.text("Connected.", {0, 2}, 100, 1.0f);
-    galactic_unicorn.update(&graphics);
+
+    status_message("Connected.");
 
     make_http_request();
 
