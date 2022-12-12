@@ -30,8 +30,8 @@ add_executable(galactic-unicorn-github
 pico_set_program_name(galactic-unicorn-github "galactic-unicorn-github")
 pico_set_program_version(galactic-unicorn-github "0.1")
 
-pico_enable_stdio_uart(galactic-unicorn-github 1)
-pico_enable_stdio_usb(galactic-unicorn-github 0)
+pico_enable_stdio_uart(galactic-unicorn-github 0)
+pico_enable_stdio_usb(galactic-unicorn-github 1)
 
 target_include_directories(galactic-unicorn-github PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 
